@@ -7,7 +7,7 @@ from app.dependencies import get_current_user, get_current_admin
 from pydantic import BaseModel
 from typing import List
 
-router = APIRouter(tags=["收藏"])
+router = APIRouter(tags=["Favorites"])
 
 
 class FavoriteRequest(BaseModel):
@@ -31,17 +31,17 @@ async def check_favorite(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """检查商品收藏状态"""
+    """Check favorite status"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权查看该用户收藏")
+        raise HTTPException(status_code=403, detail="Unauthorized to view this user's favorites")
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
 
     favorite = db.query(Favorite).filter(
         Favorite.user_id == user_id,
@@ -58,26 +58,25 @@ async def add_favorite(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """添加收藏"""
+    """Add to favorites"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权操作该用户收藏")
+        raise HTTPException(status_code=403, detail="Unauthorized to operate on this user's favorites")
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
     product = db.query(Product).filter(Product.product_id == request.product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
 
-    # 检查是否已经收藏
     existing_favorite = db.query(Favorite).filter(
         Favorite.user_id == user_id,
         Favorite.product_id == request.product_id
     ).first()
 
     if existing_favorite:
-        raise HTTPException(status_code=400, detail="已经收藏过该商品")
+        raise HTTPException(status_code=400, detail="Product already in favorites")
 
     try:
         favorite = Favorite(user_id=user_id, product_id=request.product_id)
@@ -87,12 +86,12 @@ async def add_favorite(
 
         return FavoriteOperationResponse(
             success=True,
-            message="已添加到收藏"
+            message="Added to favorites"
         )
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="添加收藏失败")
+        raise HTTPException(status_code=500, detail="Failed to add to favorites")
 
 
 @router.delete("/{user_id}/remove/{product_id}", response_model=FavoriteOperationResponse)
@@ -102,9 +101,9 @@ async def remove_favorite(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """移除收藏"""
+    """Remove from favorites"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权操作该用户收藏")
+        raise HTTPException(status_code=403, detail="Unauthorized to operate on this user's favorites")
 
     favorite = db.query(Favorite).filter(
         Favorite.user_id == user_id,
@@ -112,7 +111,7 @@ async def remove_favorite(
     ).first()
 
     if not favorite:
-        raise HTTPException(status_code=404, detail="收藏记录不存在")
+        raise HTTPException(status_code=404, detail="Favorite record does not exist")
 
     try:
         db.delete(favorite)
@@ -120,12 +119,12 @@ async def remove_favorite(
 
         return FavoriteOperationResponse(
             success=True,
-            message="已从收藏移除"
+            message="Removed from favorites"
         )
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="移除收藏失败")
+        raise HTTPException(status_code=500, detail="Failed to remove from favorites")
 
 
 @router.get("/{user_id}", response_model=List[FavoriteProductResponse])
@@ -134,15 +133,14 @@ async def get_user_favorites(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """获取用户收藏列表"""
+    """Get user's favorites list"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权查看该用户收藏")
+        raise HTTPException(status_code=403, detail="Unauthorized to view this user's favorites")
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
-    # 使用join查询优化性能
     favorites = db.query(Favorite, Product).join(
         Product, Favorite.product_id == Product.product_id
     ).filter(Favorite.user_id == user_id).all()
@@ -168,9 +166,9 @@ async def get_favorite_count(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """获取用户收藏数量"""
+    """Get user's favorites count"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权查看该用户收藏")
+        raise HTTPException(status_code=403, detail="Unauthorized to view this user's favorites")
 
     count = db.query(Favorite).filter(Favorite.user_id == user_id).count()
 
@@ -180,28 +178,26 @@ async def get_favorite_count(
     }
 
 
-# 新增端点：兼容前端调用的端点
 @router.post("/", response_model=FavoriteOperationResponse)
 async def add_favorite_compatible(
         request: FavoriteRequest,
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """添加收藏（兼容前端调用）"""
+    """Add to favorites (compatible endpoint)"""
     user_id = current_user.user_id
 
     product = db.query(Product).filter(Product.product_id == request.product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
 
-    # 检查是否已经收藏
     existing_favorite = db.query(Favorite).filter(
         Favorite.user_id == user_id,
         Favorite.product_id == request.product_id
     ).first()
 
     if existing_favorite:
-        raise HTTPException(status_code=400, detail="已经收藏过该商品")
+        raise HTTPException(status_code=400, detail="Product already in favorites")
 
     try:
         favorite = Favorite(user_id=user_id, product_id=request.product_id)
@@ -211,24 +207,24 @@ async def add_favorite_compatible(
 
         return FavoriteOperationResponse(
             success=True,
-            message="已添加到收藏"
+            message="Added to favorites"
         )
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="添加收藏失败")
+        raise HTTPException(status_code=500, detail="Failed to add to favorites")
 
 
 @router.delete("/", response_model=FavoriteOperationResponse)
 async def remove_favorite_compatible(
-        user_id: int = Query(..., description="用户ID"),
-        product_id: int = Query(..., description="商品ID"),
+        user_id: int = Query(..., description="User ID"),
+        product_id: int = Query(..., description="Product ID"),
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """移除收藏（兼容前端调用）"""
+    """Remove from favorites (compatible endpoint)"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权操作该用户收藏")
+        raise HTTPException(status_code=403, detail="Unauthorized to operate on this user's favorites")
 
     favorite = db.query(Favorite).filter(
         Favorite.user_id == user_id,
@@ -236,7 +232,7 @@ async def remove_favorite_compatible(
     ).first()
 
     if not favorite:
-        raise HTTPException(status_code=404, detail="收藏记录不存在")
+        raise HTTPException(status_code=404, detail="Favorite record does not exist")
 
     try:
         db.delete(favorite)
@@ -244,32 +240,32 @@ async def remove_favorite_compatible(
 
         return FavoriteOperationResponse(
             success=True,
-            message="已从收藏移除"
+            message="Removed from favorites"
         )
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="移除收藏失败")
+        raise HTTPException(status_code=500, detail="Failed to remove from favorites")
 
 
 @router.get("/check", response_model=FavoriteResponse)
 async def check_favorite_compatible(
-        user_id: int = Query(..., description="用户ID"),
-        product_id: int = Query(..., description="商品ID"),
+        user_id: int = Query(..., description="User ID"),
+        product_id: int = Query(..., description="Product ID"),
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """检查商品收藏状态（兼容前端调用）"""
+    """Check favorite status (compatible endpoint)"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权查看该用户收藏")
+        raise HTTPException(status_code=403, detail="Unauthorized to view this user's favorites")
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
 
     favorite = db.query(Favorite).filter(
         Favorite.user_id == user_id,
@@ -285,7 +281,7 @@ async def get_all_favorites(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """获取所有用户的收藏列表（管理员权限）"""
+    """Get all users' favorites (admin only)"""
     favorites = db.query(Favorite).offset(skip).limit(limit).all()
     return favorites
 
@@ -295,6 +291,6 @@ async def get_user_favorites_admin(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """获取指定用户的所有收藏（管理员权限）"""
+    """Get specific user's favorites (admin only)"""
     favorites = db.query(Favorite).filter(Favorite.user_id == user_id).all()
     return favorites
