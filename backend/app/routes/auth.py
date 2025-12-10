@@ -10,7 +10,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 import re
 
-router = APIRouter(tags=["认证"])
+router = APIRouter(tags=["Authentication"])
 
 class RegisterRequest(BaseModel):
     username: str
@@ -22,34 +22,33 @@ class LoginRequest(UserLogin):
     pass
 
 def validate_username(username: str):
-    """用户名验证"""
+
     if len(username) < 3:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户名至少需要3个字符"
+            detail="Username must be at least 3 characters long."
         )
     if not re.match(r'^[a-zA-Z0-9_]+$', username):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户名只能包含字母、数字和下划线"
+            detail="Username can only contain letters, numbers, and underscores."
         )
     return username
 
 def validate_password(password: str):
-    """密码验证"""
+
     if len(password) < 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="密码至少需要6个字符"
+            detail="Password must be at least 6 characters long."
         )
     return password
 
 def validate_tel(tel: str):
-    """手机号验证"""
     if tel and not re.match(r'^1[3-9]\d{9}$', tel):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="手机号格式不正确"
+            detail="Invalid phone number format."
         )
     return tel
 
@@ -58,22 +57,21 @@ async def login(
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
-    """用户登录"""
+
     user = db.query(User).filter(User.user_name == login_data.username).first()
 
     if not user or not verify_password(login_data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误",
+            detail="Incorrect username or password.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 创建访问令牌
     access_token = create_access_token(
         data={
             "user_id": user.user_id,
             "username": user.user_name,
-            "is_admin": user.is_admin  # 添加这一行
+            "is_admin": user.is_admin  
         },
         expires_delta=timedelta(minutes=30)
     )
@@ -83,7 +81,7 @@ async def login(
         "token_type": "bearer",
         "user_id": user.user_id,
         "user_name": user.user_name,
-        "is_admin": user.is_admin  # 返回给前端
+        "is_admin": user.is_admin  
     }
 
 @router.post("/register")
@@ -92,14 +90,13 @@ async def register(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """用户注册"""
-    # 数据验证
+
     validate_username(register_data.username)
     validate_password(register_data.password)
     if register_data.tel:
         validate_tel(register_data.tel)
 
-    # 检查用户是否已存在
+
     existing_user = db.query(User).filter(
         (User.user_name == register_data.username) |
         (User.email == register_data.email)
@@ -108,11 +105,11 @@ async def register(
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户名或邮箱已被注册"
+            detail="Username or email has already been registered."
         )
 
     try:
-        # 创建新用户
+
         hashed_password = get_password_hash(register_data.password)
         new_user = User(
             user_name=register_data.username,
@@ -120,18 +117,18 @@ async def register(
             email=register_data.email or f"{register_data.username}@example.com",
             tel=register_data.tel or "13800000000",
             is_member=False,
-            is_admin=False  # 新用户默认不是管理员
+            is_admin=False  
         )
 
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
 
-        # 后台任务初始化用户相关数据
+ 
         background_tasks.add_task(initialize_user_data, db, new_user.user_id)
 
         return {
-            "message": "用户注册成功",
+            "message": "User registration successful.",
             "user_id": new_user.user_id,
             "username": new_user.user_name
         }
@@ -140,45 +137,45 @@ async def register(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="注册过程中发生错误"
+            detail="An error occurred during the registration process."
         )
 
 def initialize_user_data(db: Session, user_id: int):
-    """初始化用户相关数据（购物车等）"""
+
     try:
         from app.models import ShoppingCart
-        # 创建用户购物车
+
         cart = ShoppingCart(user_id=user_id)
         db.add(cart)
         db.commit()
     except Exception as e:
         db.rollback()
-        print(f"初始化用户数据失败: {e}")
+        print(f"Failed to initialize user data: {e}")
 
 @router.get("/me")
 async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ):
-    """获取当前用户信息"""
+
     return {
         "user_id": current_user.user_id,
         "user_name": current_user.user_name,
         "email": current_user.email,
         "tel": current_user.tel,
         "is_member": current_user.is_member,
-        "is_admin": current_user.is_admin  # 添加这一行
+        "is_admin": current_user.is_admin 
     }
 
 @router.post("/refresh")
 async def refresh_token(
     current_user: User = Depends(get_current_user)
 ):
-    """刷新访问令牌"""
+
     access_token = create_access_token(
         data={
             "user_id": current_user.user_id,
             "username": current_user.user_name,
-            "is_admin": current_user.is_admin  # 添加这一行
+            "is_admin": current_user.is_admin  
         },
         expires_delta=timedelta(minutes=30)
     )
@@ -188,5 +185,5 @@ async def refresh_token(
         "token_type": "bearer",
         "user_id": current_user.user_id,
         "user_name": current_user.user_name,
-        "is_admin": current_user.is_admin  # 添加这一行
+        "is_admin": current_user.is_admin  
     }
