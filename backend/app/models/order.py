@@ -12,9 +12,9 @@ class Order(Base):
     recipient = Column(String(100), nullable=False)
     shipping_address = Column(Text, nullable=False)
     status = Column(String(50), nullable=False, default="pending")
-    created_at = Column(DateTime, default=datetime.utcnow)  # 添加创建时间字段
+    created_at = Column(DateTime, default=datetime.utcnow) 
 
-    # 关系
+
     user = relationship("User", back_populates="orders")
     order_items = relationship("OrderItem", back_populates="order")
 
@@ -26,6 +26,6 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
     price = Column(Numeric(10, 2), nullable=False)
 
-    # 关系
+
     order = relationship("Order", back_populates="order_items")
     product = relationship("Product", back_populates="order_items")
