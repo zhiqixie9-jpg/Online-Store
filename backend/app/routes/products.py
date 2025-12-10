@@ -7,7 +7,7 @@ from app.schemas import Product as ProductSchema
 from app.dependencies import get_current_user_optional, get_current_admin
 from pydantic import BaseModel
 
-router = APIRouter(tags=["商品"])
+router = APIRouter(tags=["Products"])
 
 class ProductCreate(BaseModel):
     product_name: str
@@ -27,20 +27,19 @@ class ProductUpdate(BaseModel):
 async def get_products(
         skip: int = 0,
         limit: int = 100,
-        type: Optional[str] = Query(None, description="商品类型筛选"),
-        search: Optional[str] = Query(None, description="商品名称搜索"),
-        min_price: Optional[float] = Query(None, ge=0, description="最低价格"),
-        max_price: Optional[float] = Query(None, ge=0, description="最高价格"),
-        in_stock: Optional[bool] = Query(None, description="仅显示有库存"),
-        sort_by: Optional[str] = Query("product_id", description="排序字段"),
-        sort_order: Optional[str] = Query("asc", regex="^(asc|desc)$", description="排序方向"),
+        type: Optional[str] = Query(None, description="Product type filter"),
+        search: Optional[str] = Query(None, description="Product name search"),
+        min_price: Optional[float] = Query(None, ge=0, description="Minimum price"),
+        max_price: Optional[float] = Query(None, ge=0, description="Maximum price"),
+        in_stock: Optional[bool] = Query(None, description="Only show in-stock items"),
+        sort_by: Optional[str] = Query("product_id", description="Sort field"),
+        sort_order: Optional[str] = Query("asc", regex="^(asc|desc)$", description="Sort direction"),
         db: Session = Depends(get_db),
         current_user: Optional[User] = Depends(get_current_user_optional)
 ):
-    """获取商品列表"""
+    """Get product list"""
     query = db.query(Product)
 
-    # 应用筛选条件
     if type:
         query = query.filter(Product.type == type)
     if search:
@@ -52,7 +51,6 @@ async def get_products(
     if in_stock:
         query = query.filter(Product.stock_quantity > 0)
 
-    # 应用排序
     sort_column = getattr(Product, sort_by, Product.product_id)
     if sort_order == "desc":
         sort_column = sort_column.desc()
@@ -67,16 +65,16 @@ async def get_product(
         product_id: int,
         db: Session = Depends(get_db)
 ):
-    """获取单个商品详情"""
+    """Get single product details"""
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
     return product
 
 
 @router.get("/categories/types")
 async def get_product_types(db: Session = Depends(get_db)):
-    """获取所有商品分类"""
+    """Get all product categories"""
     types = db.query(Product.type).distinct().all()
     return [type[0] for type in types if type[0]]
 
@@ -86,10 +84,10 @@ async def get_product_stock(
         product_id: int,
         db: Session = Depends(get_db)
 ):
-    """获取商品库存信息"""
+    """Get product stock information"""
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
 
     return {
         "product_id": product_id,
@@ -101,11 +99,11 @@ async def get_product_stock(
 
 @router.get("/search/suggestions")
 async def get_search_suggestions(
-        q: str = Query(..., min_length=1, description="搜索关键词"),
-        limit: int = Query(10, le=50, description="建议数量"),
+        q: str = Query(..., min_length=1, description="Search keyword"),
+        limit: int = Query(10, le=50, description="Suggestion count"),
         db: Session = Depends(get_db)
 ):
-    """获取搜索建议"""
+    """Get search suggestions"""
     products = db.query(Product).filter(
         Product.product_name.contains(q)
     ).limit(limit).all()
@@ -130,7 +128,7 @@ async def create_product(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """创建商品（管理员权限）"""
+    """Create product (admin only)"""
     try:
         new_product = Product(
             product_name=product_data.product_name,
@@ -145,12 +143,12 @@ async def create_product(
 
         return {
             "success": True,
-            "message": "商品创建成功",
+            "message": "Product created successfully",
             "product_id": new_product.product_id
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"创建商品失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create product: {str(e)}")
 
 
 @router.put("/admin/{product_id}")
@@ -160,10 +158,10 @@ async def update_product(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """更新商品信息（管理员权限）"""
+    """Update product information (admin only)"""
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
 
     try:
         update_data = product_data.dict(exclude_unset=True)
@@ -175,7 +173,7 @@ async def update_product(
 
         return {
             "success": True,
-            "message": "商品更新成功",
+            "message": "Product updated successfully",
             "product": {
                 "product_id": product.product_id,
                 "product_name": product.product_name,
@@ -186,7 +184,7 @@ async def update_product(
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"更新商品失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update product: {str(e)}")
 
 
 @router.delete("/admin/{product_id}")
@@ -195,10 +193,10 @@ async def delete_product(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """删除商品（管理员权限）"""
+    """Delete product (admin only)"""
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
 
     try:
         db.delete(product)
@@ -206,8 +204,8 @@ async def delete_product(
 
         return {
             "success": True,
-            "message": "商品删除成功"
+            "message": "Product deleted successfully"
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"删除商品失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete product: {str(e)}")
