@@ -11,9 +11,9 @@ class User(Base):
     email = Column(String(100), nullable=False, unique=True)
     tel = Column(String(20), nullable=False)
     is_member = Column(Boolean, default=False)
-    is_admin = Column(Boolean, default=False)  # 新增管理员字段
+    is_admin = Column(Boolean, default=False) 
 
-    # 关系
+
     carts = relationship("ShoppingCart", back_populates="user")
     favorites = relationship("Favorite", back_populates="user")
     orders = relationship("Order", back_populates="user")
