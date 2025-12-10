@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from datetime import datetime, timedelta
 from app.database import get_db
 from app.models import Order, OrderItem, Product, ShoppingCart, CartItem, User
-from app.dependencies import get_current_user, get_current_admin  # 添加 get_current_admin
+from app.dependencies import get_current_user, get_current_admin
 from app.utils import update_member_status
 
 router = APIRouter()
@@ -42,11 +42,10 @@ async def get_user_orders(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """获取用户订单列表"""
+    """Get user order list"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权查看该用户订单")
+        raise HTTPException(status_code=403, detail="Unauthorized to view this user's orders")
 
-    # 使用joinedload优化查询
     orders = db.query(Order).options(
         joinedload(Order.order_items).joinedload(OrderItem.product)
     ).filter(Order.user_id == user_id).order_by(Order.created_at.desc()).all()
@@ -58,7 +57,7 @@ async def get_user_orders(
             product = item.product
             items_with_details.append(OrderItemResponse(
                 product_id=item.product_id,
-                product_name=product.product_name if product else "未知商品",
+                product_name=product.product_name if product else "Unknown product",
                 quantity=item.quantity,
                 price=float(item.price),
                 subtotal=float(item.price * item.quantity)
@@ -84,19 +83,17 @@ async def create_order(
         db: Session = Depends(get_db),
         background_tasks: BackgroundTasks = None
 ):
-    """创建订单"""
+    """Create order"""
     try:
-        # 获取用户的购物车和商品
         cart = db.query(ShoppingCart).options(
             joinedload(ShoppingCart.cart_items).joinedload(CartItem.product)
         ).filter(ShoppingCart.user_id == current_user.user_id).first()
 
         if not cart:
-            raise HTTPException(status_code=404, detail="购物车不存在")
+            raise HTTPException(status_code=404, detail="Shopping cart does not exist")
         if not cart.cart_items:
-            raise HTTPException(status_code=400, detail="购物车为空")
+            raise HTTPException(status_code=400, detail="Shopping cart is empty")
 
-        # 验证库存和计算总金额
         total_amount = 0
         order_items_data = []
         insufficient_stock = []
@@ -125,15 +122,14 @@ async def create_order(
             raise HTTPException(
                 status_code=400,
                 detail={
-                    "message": "部分商品库存不足",
+                    "message": "Some products have insufficient stock",
                     "insufficient_items": insufficient_stock
                 }
             )
 
         if not order_items_data:
-            raise HTTPException(status_code=400, detail="没有可下单的商品")
+            raise HTTPException(status_code=400, detail="No items available for order")
 
-        # 创建订单
         new_order = Order(
             user_id=current_user.user_id,
             total_amount=total_amount,
@@ -146,7 +142,6 @@ async def create_order(
         db.add(new_order)
         db.flush()
 
-        # 创建订单项并更新库存
         for item_data in order_items_data:
             order_item = OrderItem(
                 order_id=new_order.order_id,
@@ -156,13 +151,11 @@ async def create_order(
             )
             db.add(order_item)
 
-            # 更新商品库存
             product = db.query(Product).filter(
                 Product.product_id == item_data["product_id"]
-            ).with_for_update().first()  # 行级锁防止并发问题
+            ).with_for_update().first()
             product.stock_quantity -= item_data["quantity"]
 
-        # 清空购物车中已下单的商品
         for item_data in order_items_data:
             cart_item = db.query(CartItem).filter(
                 CartItem.cart_id == cart.cart_id,
@@ -173,13 +166,12 @@ async def create_order(
 
         db.commit()
 
-        # 后台任务更新会员状态
         if background_tasks:
             background_tasks.add_task(update_member_status, db, current_user.user_id)
 
         return {
             "success": True,
-            "message": "订单创建成功",
+            "message": "Order created successfully",
             "order_id": new_order.order_id,
             "total_amount": float(total_amount)
         }
@@ -189,7 +181,7 @@ async def create_order(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"创建订单失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create order: {str(e)}")
 
 
 @router.get("/{order_id}")
@@ -198,23 +190,23 @@ async def get_order_detail(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """获取订单详情"""
+    """Get order details"""
     order = db.query(Order).options(
         joinedload(Order.order_items).joinedload(OrderItem.product)
     ).filter(Order.order_id == order_id).first()
 
     if not order:
-        raise HTTPException(status_code=404, detail="订单不存在")
+        raise HTTPException(status_code=404, detail="Order does not exist")
 
     if order.user_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="无权查看该订单")
+        raise HTTPException(status_code=403, detail="Unauthorized to view this order")
 
     items_with_details = []
     for item in order.order_items:
         product = item.product
         items_with_details.append(OrderItemResponse(
             product_id=item.product_id,
-            product_name=product.product_name if product else "未知商品",
+            product_name=product.product_name if product else "Unknown product",
             quantity=item.quantity,
             price=float(item.price),
             subtotal=float(item.price * item.quantity)
@@ -237,32 +229,30 @@ async def cancel_order(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """取消订单"""
+    """Cancel order"""
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
-            raise HTTPException(status_code=404, detail="订单不存在")
+            raise HTTPException(status_code=404, detail="Order does not exist")
 
         if order.user_id != current_user.user_id:
-            raise HTTPException(status_code=403, detail="无权取消该订单")
+            raise HTTPException(status_code=403, detail="Unauthorized to cancel this order")
 
         if order.status != "pending":
-            raise HTTPException(status_code=400, detail="只有待付款的订单可以取消")
+            raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
 
-        # 恢复库存
         order_items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
         for item in order_items:
             product = db.query(Product).filter(Product.product_id == item.product_id).first()
             if product:
                 product.stock_quantity += item.quantity
 
-        # 更新订单状态
         order.status = "cancelled"
         db.commit()
 
         return {
             "success": True,
-            "message": "订单已取消"
+            "message": "Order cancelled successfully"
         }
 
     except HTTPException:
@@ -270,7 +260,7 @@ async def cancel_order(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"取消订单失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel order: {str(e)}")
 
 
 @router.put("/{order_id}/complete")
@@ -280,32 +270,31 @@ async def complete_order(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """确认收货，完成订单"""
+    """Complete order"""
     order = db.query(Order).filter(Order.order_id == order_id).first()
     if not order:
-        raise HTTPException(status_code=404, detail="订单不存在")
+        raise HTTPException(status_code=404, detail="Order does not exist")
 
     if order.user_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="无权操作该订单")
+        raise HTTPException(status_code=403, detail="Unauthorized to operate on this order")
 
     if order.status != 'shipped':
-        raise HTTPException(status_code=400, detail="只有已发货的订单可以确认收货")
+        raise HTTPException(status_code=400, detail="Only shipped orders can be completed")
 
     try:
         order.status = 'completed'
         db.commit()
 
-        # 后台更新会员状态
         background_tasks.add_task(update_member_status, db, order.user_id)
 
         return {
             "success": True,
-            "message": "订单已完成"
+            "message": "Order completed successfully"
         }
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"完成订单失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to complete order: {str(e)}")
 
 
 @router.put("/auto-complete-old-orders")
@@ -313,7 +302,7 @@ async def auto_complete_old_orders(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """自动将15天前的已收货订单转为已完成（管理员权限）"""
+    """Auto-complete old orders (admin only)"""
     try:
         fifteen_days_ago = datetime.utcnow() - timedelta(days=15)
 
@@ -333,27 +322,26 @@ async def auto_complete_old_orders(
         if updated_orders:
             db.commit()
 
-            # 更新相关用户的会员状态
             for user_id in updated_users:
                 update_member_status(db, user_id)
 
             return {
                 "success": True,
-                "message": f"已自动完成 {len(updated_orders)} 个订单",
+                "message": f"Auto-completed {len(updated_orders)} orders",
                 "updated_orders": updated_orders,
                 "updated_users": list(updated_users)
             }
         else:
             return {
                 "success": True,
-                "message": "没有需要自动完成的订单",
+                "message": "No orders need to be auto-completed",
                 "updated_orders": [],
                 "updated_users": []
             }
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"自动完成订单失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to auto-complete orders: {str(e)}")
 
 
 @router.get("/admin/all")
@@ -363,7 +351,7 @@ async def get_all_orders(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """获取所有订单（管理员权限）"""
+    """Get all orders (admin only)"""
     orders = db.query(Order).options(
         joinedload(Order.order_items).joinedload(OrderItem.product)
     ).order_by(Order.created_at.desc()).offset(skip).limit(limit).all()
@@ -375,7 +363,7 @@ async def get_all_orders(
             product = item.product
             items_with_details.append({
                 "product_id": item.product_id,
-                "product_name": product.product_name if product else "未知商品",
+                "product_name": product.product_name if product else "Unknown product",
                 "quantity": item.quantity,
                 "price": float(item.price),
                 "subtotal": float(item.price * item.quantity)
@@ -401,7 +389,7 @@ async def get_orders_by_status(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """根据状态获取订单（管理员权限）"""
+    """Get orders by status (admin only)"""
     orders = db.query(Order).filter(Order.status == status).all()
     return orders
 
@@ -413,17 +401,16 @@ async def update_order_status_admin(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """更新订单状态（管理员权限）"""
+    """Update order status (admin only)"""
     order = db.query(Order).filter(Order.order_id == order_id).first()
     if not order:
-        raise HTTPException(status_code=404, detail="订单不存在")
+        raise HTTPException(status_code=404, detail="Order does not exist")
 
     status = status_update.status
 
-    # 验证状态值
     valid_statuses = ['pending', 'paid', 'shipped', 'completed', 'cancelled']
     if status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"状态值无效，必须是: {', '.join(valid_statuses)}")
+        raise HTTPException(status_code=400, detail=f"Invalid status, must be one of: {', '.join(valid_statuses)}")
 
     try:
         order.status = status
@@ -431,39 +418,39 @@ async def update_order_status_admin(
 
         return {
             "success": True,
-            "message": f"订单状态已更新为: {status}",
+            "message": f"Order status updated to: {status}",
             "order_id": order_id,
             "status": status
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"更新订单状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update order status: {str(e)}")
 
 
 @router.post("/{order_id}/pay")
 async def pay_order(
         order_id: int,
         db: Session = Depends(get_db),
-        admin: User = Depends(get_current_user)  # 或者普通用户权限，根据需求
+        admin: User = Depends(get_current_user)
 ):
-    """支付订单（模拟支付）"""
+    """Pay for order (simulated payment)"""
     order = db.query(Order).filter(Order.order_id == order_id).first()
     if not order:
-        raise HTTPException(status_code=404, detail="订单不存在")
+        raise HTTPException(status_code=404, detail="Order does not exist")
 
     if order.status != 'pending':
-        raise HTTPException(status_code=400, detail="只有待付款的订单可以支付")
+        raise HTTPException(status_code=400, detail="Only pending orders can be paid")
 
     try:
-        order.status = 'paid'  # 支付后状态变为待发货
+        order.status = 'paid'
         db.commit()
 
         return {
             "success": True,
-            "message": "支付成功",
+            "message": "Payment successful",
             "order_id": order_id,
             "status": "paid"
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"支付失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment failed: {str(e)}")
