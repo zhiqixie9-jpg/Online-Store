@@ -11,28 +11,28 @@ This is a complete full-stack online store system featuring a front-end and back
 backend/
 ├── app/
 │   ├── _\_init\_\_.py
-│   ├── main.py
-│   ├── database.py
-│   ├── models/
-│   ├── schemas/
-│   ├── routes/
-│   └── utils/
-├── requirements.txt
-└── run.py
+│   ├── main.py			# FastAPI Main Application
+│   ├── database.py		# Database Configuration
+│   ├── models/			# SQLAlchemy Data Model
+│   ├── schemas/		# Pydantic Data Models
+│   ├── routes/			# API Routing Module
+│   └── utils/			# Utility Functions
+├── requirements.txt	# Python Dependency Packages
+└── run.py				# Application Startup Script
 ```
 ### 1.2 Frontend Structure
 ```text
 frontend/
-├── index.html
-├── ......
-├── css/
+├── index.html			# Home Page of the Mall
+├── ......				# Other Pages
+├── css/				# Style File
 │   └── style.css
 ├── js/
-│   ├── core/
-│   ├── modules
+│   ├── core/			#Core functions such as API call encapsulation and so on
+│   ├── modules/		#Other functions related to member authentication, etc.
 │   ├── admin.js
 │   └── main.js
-└── images/
+└── images/				# Image Resources
 ```
 
 
