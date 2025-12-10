@@ -7,7 +7,7 @@ from app.schemas import User as UserSchema
 from app.dependencies import get_current_user, get_current_admin, validate_resource_ownership
 from app.utils import update_member_status
 
-router = APIRouter(tags=["用户"])
+router = APIRouter(tags=["Users"])
 
 
 @router.get("/", response_model=List[UserSchema])
@@ -16,9 +16,9 @@ async def get_users(
         limit: int = 100,
         search: Optional[str] = Query(None),
         db: Session = Depends(get_db),
-        admin: User = Depends(get_current_admin)  # 仅管理员可访问
+        admin: User = Depends(get_current_admin)
 ):
-    """获取用户列表（管理员权限）"""
+    """Get user list (admin only)"""
     query = db.query(User)
 
     if search:
@@ -37,14 +37,13 @@ async def get_user(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """获取用户信息"""
+    """Get user information"""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
-    # 只能查看自己的信息，除非是管理员
     if current_user.user_id != user_id and not hasattr(current_user, 'admin_id'):
-        raise HTTPException(status_code=403, detail="无权查看该用户信息")
+        raise HTTPException(status_code=403, detail="Unauthorized to view this user's information")
 
     return user
 
@@ -55,15 +54,13 @@ async def get_member_status(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """获取用户会员状态"""
-    # 使用新的权限验证函数
+    """Get user membership status"""
     validate_resource_ownership(user_id, current_user)
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
-    # 更新并获取会员状态
     is_member = update_member_status(db, user_id)
 
     return {
@@ -79,15 +76,13 @@ async def update_member_status_manual(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """手动更新用户会员状态"""
-    # 使用新的权限验证函数
+    """Manually update user membership status"""
     validate_resource_ownership(user_id, current_user)
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
-    # 更新会员状态
     new_status = update_member_status(db, user_id)
 
     return {
@@ -95,7 +90,7 @@ async def update_member_status_manual(
         "user_id": user_id,
         "is_member": new_status,
         "user_name": user.user_name,
-        "message": f"会员状态已更新: {'会员' if new_status else '普通用户'}"
+        "message": f"Membership status updated: {'Member' if new_status else 'Regular user'}"
     }
 
 
@@ -106,16 +101,14 @@ async def update_user_profile(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """更新用户个人信息"""
-    # 使用新的权限验证函数
+    """Update user profile information"""
     validate_resource_ownership(user_id, current_user)
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
     try:
-        # 更新允许修改的字段
         allowed_fields = ['email', 'tel']
         for field in allowed_fields:
             if field in profile_data:
@@ -126,7 +119,7 @@ async def update_user_profile(
 
         return {
             "success": True,
-            "message": "个人信息更新成功",
+            "message": "Profile updated successfully",
             "user": {
                 "user_id": user.user_id,
                 "user_name": user.user_name,
@@ -139,7 +132,7 @@ async def update_user_profile(
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"更新个人信息失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
 
 @router.put("/{user_id}/set-admin")
 async def set_user_admin_status(
@@ -148,10 +141,10 @@ async def set_user_admin_status(
         current_admin: User = Depends(get_current_admin),
         db: Session = Depends(get_db)
 ):
-    """设置用户管理员状态（仅超级管理员可用）"""
+    """Set user admin status (super admin only)"""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
     try:
         user.is_admin = is_admin
@@ -159,7 +152,7 @@ async def set_user_admin_status(
 
         return {
             "success": True,
-            "message": f"用户 {user.user_name} 的管理员状态已更新为 {is_admin}",
+            "message": f"User {user.user_name}'s admin status updated to {is_admin}",
             "user": {
                 "user_id": user.user_id,
                 "user_name": user.user_name,
@@ -169,7 +162,7 @@ async def set_user_admin_status(
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"更新管理员状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update admin status: {str(e)}")
 
 @router.get("/{user_id}/admin-status")
 async def get_user_admin_status(
@@ -177,10 +170,10 @@ async def get_user_admin_status(
         current_admin: User = Depends(get_current_admin),
         db: Session = Depends(get_db)
 ):
-    """获取用户管理员状态（仅管理员可用）"""
+    """Get user admin status (admin only)"""
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User does not exist")
 
     return {
         "user_id": user.user_id,
