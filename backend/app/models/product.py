@@ -12,7 +12,7 @@ class Product(Base):
     description = Column(Text, nullable=False)
     stock_quantity = Column(Integer, default=0)
 
-    # 关系
+
     cart_items = relationship("CartItem", back_populates="product")
     order_items = relationship("OrderItem", back_populates="product")
     favorites = relationship("Favorite", back_populates="product")
