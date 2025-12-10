@@ -1,4 +1,4 @@
-# 在 models/__init__.py 中确保有这些导出
+
 from .user import User
 from .product import Product
 from .cart import ShoppingCart, CartItem
