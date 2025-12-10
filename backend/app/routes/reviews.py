@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from decimal import Decimal
 
-router = APIRouter(tags=["评价"])
+router = APIRouter(tags=["Reviews"])
 
 class ReviewResponse(BaseModel):
     user_id: int
@@ -26,11 +26,10 @@ async def add_review(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """添加商品评价"""
+    """Add product review"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权添加评价")
+        raise HTTPException(status_code=403, detail="Unauthorized to add review")
 
-    # 验证用户是否购买过该商品
     has_purchased = db.query(Order).join(OrderItem).filter(
         Order.user_id == user_id,
         Order.status == 'completed',
@@ -40,21 +39,19 @@ async def add_review(
     if not has_purchased:
         raise HTTPException(
             status_code=400,
-            detail="只有购买过该商品的用户才能进行评价"
+            detail="Only users who have purchased this product can leave a review"
         )
 
-    # 检查是否已经评价过
     existing_review = db.query(Review).filter(
         Review.user_id == user_id,
         Review.product_id == review_data.product_id
     ).first()
 
     if existing_review:
-        raise HTTPException(status_code=400, detail="已经评价过该商品")
+        raise HTTPException(status_code=400, detail="Already reviewed this product")
 
-    # 验证评分范围
     if review_data.rating < Decimal('1.0') or review_data.rating > Decimal('5.0'):
-        raise HTTPException(status_code=400, detail="评分必须在1.0到5.0之间")
+        raise HTTPException(status_code=400, detail="Rating must be between 1.0 and 5.0")
 
     try:
         review = Review(
@@ -71,17 +68,17 @@ async def add_review(
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="添加评价失败")
+        raise HTTPException(status_code=500, detail="Failed to add review")
 
 @router.get("/product/{product_id}", response_model=List[ReviewResponse])
 async def get_product_reviews(
     product_id: int,
     db: Session = Depends(get_db)
 ):
-    """获取商品评价列表"""
+    """Get product review list"""
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist")
 
     reviews = db.query(Review, User).join(
         User, Review.user_id == User.user_id
@@ -107,9 +104,9 @@ async def get_user_reviews(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取用户评价列表"""
+    """Get user review list"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权查看该用户评价")
+        raise HTTPException(status_code=403, detail="Unauthorized to view this user's reviews")
 
     reviews = db.query(Review, Product).join(
         Product, Review.product_id == Product.product_id
@@ -137,7 +134,7 @@ async def get_all_reviews(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """获取所有评价（管理员权限）"""
+    """Get all reviews (admin only)"""
     reviews = db.query(Review).offset(skip).limit(limit).all()
     return reviews
 
@@ -149,14 +146,14 @@ async def delete_review_admin(
         db: Session = Depends(get_db),
         admin: User = Depends(get_current_admin)
 ):
-    """删除评价（管理员权限）"""
+    """Delete review (admin only)"""
     review = db.query(Review).filter(
         Review.user_id == user_id,
         Review.product_id == product_id
     ).first()
 
     if not review:
-        raise HTTPException(status_code=404, detail="评价不存在")
+        raise HTTPException(status_code=404, detail="Review does not exist")
 
     try:
         db.delete(review)
@@ -164,8 +161,8 @@ async def delete_review_admin(
 
         return {
             "success": True,
-            "message": "评价删除成功"
+            "message": "Review deleted successfully"
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"删除评价失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete review: {str(e)}")
