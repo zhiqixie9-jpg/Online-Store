@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 from typing import Optional, Dict, Any
 import os
 
-# JWT配置
+
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -28,7 +28,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     return encoded_jwt
 
 def verify_token(token: str) -> Optional[Dict[str, Any]]:
-    """验证令牌并返回payload，而不是只返回user_id"""
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
