@@ -3,7 +3,7 @@ from typing import List, Optional
 from decimal import Decimal
 
 
-# 用户相关模式
+
 class UserBase(BaseModel):
     user_name: str
     email: EmailStr
@@ -27,7 +27,7 @@ class User(UserBase):
         from_attributes = True
 
 
-# 商品相关模式
+
 class ProductBase(BaseModel):
     product_name: str
     price: Decimal
@@ -47,7 +47,7 @@ class Product(ProductBase):
         from_attributes = True
 
 
-# 购物车相关模式
+
 class CartItemBase(BaseModel):
     product_id: int
     quantity: int
@@ -73,7 +73,7 @@ class ShoppingCart(BaseModel):
         from_attributes = True
 
 
-# 订单相关模式
+
 class OrderItemBase(BaseModel):
     product_id: int
     quantity: int
@@ -107,7 +107,7 @@ class Order(OrderBase):
         from_attributes = True
 
 
-# 认证响应
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -118,9 +118,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: Optional[int] = None
 
-# 在现有的 schemas/__init__.py 文件末尾添加以下内容
 
-# 收藏相关模式
 class FavoriteBase(BaseModel):
     user_id: int
     product_id: int
@@ -139,7 +137,7 @@ class FavoriteOperationResponse(BaseModel):
     success: bool
     message: str
 
-# 评价相关模式
+
 class ReviewBase(BaseModel):
     content: str
     rating: Decimal
