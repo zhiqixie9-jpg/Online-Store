@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product List - Online Store</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">🛒 Online Store</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="products.html">Products</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav" id="auth-links">
+                    <!-- Dynamically generated -->
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Product List -->
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Sidebar Filters -->
+            <div class="col-md-3">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Filters</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Search Box -->
+                        <div class="mb-3">
+                            <label for="search-input" class="form-label">Search Products</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="search-input" placeholder="Enter product name...">
+                            </div>
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="mb-3">
+                            <label class="form-label">Category</label>
+                            <select class="form-select" id="category-filter">
+                                <!-- Categories will be dynamically loaded via JavaScript -->
+                            </select>
+                        </div>
+
+                        <!-- Price Range -->
+                        <div class="mb-3">
+                            <label class="form-label">Price Range</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <input type="number" class="form-control" id="price-min" placeholder="Min" min="0">
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" class="form-control" id="price-max" placeholder="Max" min="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stock Filter -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="in-stock-filter">
+                                <label class="form-check-label" for="in-stock-filter">
+                                    Only show in-stock products
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Sort -->
+                        <div class="mb-3">
+                            <label class="form-label">Sort By</label>
+                            <select class="form-select" id="sort-select">
+                                <option value="product_id_desc">Default</option>
+                                <option value="price_asc">Price: Low to High</option>
+                                <option value="price_desc">Price: High to Low</option>
+                                <option value="product_name_asc">Name: A-Z</option>
+                                <option value="product_name_desc">Name: Z-A</option>
+                                <option value="stock_quantity_desc">Stock: High to Low</option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-secondary" id="clear-filters">
+                                Clear Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product List -->
+            <div class="col-md-9">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>All Products</h2>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2">Show:</span>
+                        <select class="form-select w-auto" id="page-size">
+                            <option value="12">12</option>
+                            <option value="24">24</option>
+                            <option value="48">48</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Product List Container -->
+                <div id="product-list" class="row">
+                    <!-- Products will be dynamically loaded via JavaScript -->
+                    <div class="col-12 text-center py-5">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Loading products...</p>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <nav aria-label="Product pagination" class="mt-4">
+                    <ul class="pagination justify-content-center" id="pagination">
+                        <!-- Pagination will be dynamically generated via JavaScript -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container text-center">
+            <p>&copy; 2024 Online Store. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/core/config.js"></script>
+    <script src="js/core/api.js"></script>
+    <script src="js/core/auth.js"></script>
+    <script src="js/core/auth-utils.js"></script>
+    <script src="js/core/utils.js"></script>
+    <script src="js/core/product-card.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/modules/products.js"></script>
+</body>
+</html>
