@@ -7,7 +7,7 @@ from app.models import ShoppingCart, CartItem, Product, User
 from app.dependencies import get_current_user, validate_positive_quantity, get_current_admin
 from app.schemas import CartItem as CartItemSchema
 
-router = APIRouter(tags=["购物车"])
+router = APIRouter(tags=["Shopping Cart"])
 
 
 class AddToCartRequest(BaseModel):
@@ -21,7 +21,7 @@ class CartItemResponse(BaseModel):
     price: float
     quantity: int
     subtotal: float
-    image_url: str = None  # 可扩展字段
+    image_url: str = None 
 
 
 class CartResponse(BaseModel):
@@ -38,11 +38,11 @@ async def get_cart(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """获取用户购物车"""
-    if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权访问该购物车")
 
-    # 使用joinedload优化查询
+    if current_user.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized to access this shopping cart.")
+
+ 
     cart = db.query(ShoppingCart).options(
         joinedload(ShoppingCart.cart_items).joinedload(CartItem.product)
     ).filter(ShoppingCart.user_id == user_id).first()
@@ -52,7 +52,7 @@ async def get_cart(
         db.add(cart)
         db.commit()
         db.refresh(cart)
-        # 重新查询以获取关联数据
+
         cart = db.query(ShoppingCart).options(
             joinedload(ShoppingCart.cart_items).joinedload(CartItem.product)
         ).filter(ShoppingCart.user_id == user_id).first()
@@ -64,7 +64,7 @@ async def get_cart(
     for item in cart.cart_items:
         product = item.product
         if not product:
-            continue  # 跳过无效商品
+            continue  
 
         subtotal = float(product.price * item.quantity)
         total += subtotal
@@ -94,14 +94,14 @@ async def add_to_cart(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """添加商品到购物车"""
-    if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权操作该购物车")
 
-    # 验证数量
+    if current_user.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized to operate on this shopping cart.")
+
+
     validate_positive_quantity(request.quantity)
 
-    # 获取或创建购物车
+
     cart = db.query(ShoppingCart).filter(ShoppingCart.user_id == user_id).first()
     if not cart:
         cart = ShoppingCart(user_id=user_id)
@@ -109,19 +109,19 @@ async def add_to_cart(
         db.commit()
         db.refresh(cart)
 
-    # 检查商品是否存在
+
     product = db.query(Product).filter(Product.product_id == request.productId).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist.")
 
-    # 检查库存
+
     if product.stock_quantity < request.quantity:
         raise HTTPException(
             status_code=400,
-            detail=f"库存不足，当前库存: {product.stock_quantity}"
+            detail=f"Insufficient stock. Current stock: {product.stock_quantity}"
         )
 
-    # 检查是否已在购物车中
+
     existing_item = db.query(CartItem).filter(
         CartItem.cart_id == cart.cart_id,
         CartItem.product_id == request.productId
@@ -129,12 +129,12 @@ async def add_to_cart(
 
     try:
         if existing_item:
-            # 检查更新后的总数量是否超过库存
+
             new_quantity = existing_item.quantity + request.quantity
             if product.stock_quantity < new_quantity:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"超过库存限制，当前库存: {product.stock_quantity}"
+                    detail=f"Exceeds stock limit. Current stock: {product.stock_quantity}"
                 )
             existing_item.quantity = new_quantity
         else:
@@ -148,7 +148,7 @@ async def add_to_cart(
         db.commit()
         return {
             "success": True,
-            "message": "商品已添加到购物车"
+            "message": "Product has been added to the shopping cart."
         }
 
     except HTTPException:
@@ -156,7 +156,7 @@ async def add_to_cart(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="添加购物车失败")
+        raise HTTPException(status_code=500, detail="Failed to add item to the shopping cart.")
 
 
 @router.put("/{user_id}/update")
@@ -166,13 +166,13 @@ async def update_cart_item(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """更新购物车商品数量"""
+
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权操作该购物车")
+        raise HTTPException(status_code=403, detail="Unauthorized to operate on this shopping cart.")
 
     cart = db.query(ShoppingCart).filter(ShoppingCart.user_id == user_id).first()
     if not cart:
-        raise HTTPException(status_code=404, detail="购物车不存在")
+        raise HTTPException(status_code=404, detail="Shopping cart does not exist.")
 
     cart_item = db.query(CartItem).filter(
         CartItem.cart_id == cart.cart_id,
@@ -180,28 +180,28 @@ async def update_cart_item(
     ).first()
 
     if not cart_item:
-        raise HTTPException(status_code=404, detail="购物车中未找到该商品")
+        raise HTTPException(status_code=404, detail="Product not found in the shopping cart.")
 
-    # 检查库存
+
     product = db.query(Product).filter(Product.product_id == request.productId).first()
     if not product:
-        raise HTTPException(status_code=404, detail="商品不存在")
+        raise HTTPException(status_code=404, detail="Product does not exist.")
 
     if request.quantity <= 0:
-        # 移除商品
+
         db.delete(cart_item)
     else:
         if product.stock_quantity < request.quantity:
             raise HTTPException(
                 status_code=400,
-                detail=f"库存不足，当前库存: {product.stock_quantity}"
+                detail=f"Insufficient stock. Current stock: {product.stock_quantity}"
             )
         cart_item.quantity = request.quantity
 
     db.commit()
     return {
         "success": True,
-        "message": "购物车已更新"
+        "message": "Shopping cart has been updated."
     }
 
 
@@ -212,13 +212,13 @@ async def remove_from_cart(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """从购物车移除商品"""
+
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权操作该购物车")
+        raise HTTPException(status_code=403, detail="Unauthorized to operate on this shopping cart.")
 
     cart = db.query(ShoppingCart).filter(ShoppingCart.user_id == user_id).first()
     if not cart:
-        raise HTTPException(status_code=404, detail="购物车不存在")
+        raise HTTPException(status_code=404, detail="Shopping cart does not exist.")
 
     cart_item = db.query(CartItem).filter(
         CartItem.cart_id == cart.cart_id,
@@ -226,14 +226,14 @@ async def remove_from_cart(
     ).first()
 
     if not cart_item:
-        raise HTTPException(status_code=404, detail="购物车中未找到该商品")
+        raise HTTPException(status_code=404, detail="Product not found in the shopping cart.")
 
     db.delete(cart_item)
     db.commit()
 
     return {
         "success": True,
-        "message": "商品已从购物车移除"
+        "message": "Product has been removed from the shopping cart."
     }
 
 
@@ -243,33 +243,32 @@ async def clear_cart(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """清空购物车"""
+    """Clear shopping cart"""
     if current_user.user_id != user_id:
-        raise HTTPException(status_code=403, detail="无权操作该购物车")
+        raise HTTPException(status_code=403, detail="Unauthorized to operate on this shopping cart")
 
     cart = db.query(ShoppingCart).filter(ShoppingCart.user_id == user_id).first()
     if not cart:
-        raise HTTPException(status_code=404, detail="购物车不存在")
+        raise HTTPException(status_code=404, detail="Shopping cart does not exist.")
 
     try:
-        # 删除所有购物车项
         db.query(CartItem).filter(CartItem.cart_id == cart.cart_id).delete()
         db.commit()
 
         return {
             "success": True,
-            "message": "购物车已清空"
+            "message": "Shopping cart has been cleared"
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="清空购物车失败")
+        raise HTTPException(status_code=500, detail="Failed to clear shopping cart")
 
 @router.get("/admin/all")
 async def get_all_carts(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """获取所有用户的购物车（管理员权限）"""
+    """Get all shopping carts (admin only)"""
     carts = db.query(ShoppingCart).all()
     return carts
 
@@ -279,8 +278,8 @@ async def get_user_cart_admin(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """获取指定用户的购物车（管理员权限）"""
+    """Get specific user's shopping cart (admin only)"""
     cart = db.query(ShoppingCart).filter(ShoppingCart.user_id == user_id).first()
     if not cart:
-        raise HTTPException(status_code=404, detail="用户购物车不存在")
+        raise HTTPException(status_code=404, detail="User shopping cart does not exist")
     return cart
