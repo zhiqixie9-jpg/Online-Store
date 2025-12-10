@@ -3,14 +3,13 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# 从环境变量获取数据库URL，支持生产环境
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./online_store.db")
 
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
-    pool_pre_ping=True,  # 连接池健康检查
-    echo=False  # 生产环境设为False
+    pool_pre_ping=True,  
+    echo=False  
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
